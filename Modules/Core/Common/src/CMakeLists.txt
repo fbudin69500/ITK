@@ -124,6 +124,7 @@ set(ITKCommon_SRCS
   itkTimeProbe.cxx
   itkNumericTraitsRGBPixel.cxx
   itkTimeStamp.cxx
+  itkSingleton.cxx
   itkTetrahedronCellTopology.cxx
   itkThreadedIndexedContainerPartitioner.cxx
   itkObjectFactoryBase.cxx

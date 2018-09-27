@@ -21,6 +21,7 @@
 #include "itkMacro.h"
 #include "itkObject.h"
 #include "itkSimpleFastMutexLock.h"
+#include "itkSingletonMacro.h"
 
 namespace itk
 {
@@ -41,6 +42,8 @@ namespace itk
  * \ingroup ITKCommon
  *
  */
+struct BuildInformationGlobals;
+
 class ITKCommon_EXPORT BuildInformation final: public Object
 {
 public:
@@ -92,10 +95,8 @@ public:
 private:
   BuildInformation();
 
-  /** To lock on the internal variables */
-  static SimpleFastMutexLock m_Mutex;
-  static Pointer             m_InformationInstance;
-  static MapType             m_Map;
+  itkGetGlobalDeclarationMacro(BuildInformationGlobals, Pimpl);
+  static BuildInformationGlobals * m_Pimpl;
 };  // end of class
 } // end namespace itk
 #endif

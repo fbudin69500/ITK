@@ -31,6 +31,7 @@
 #include "itkLightObject.h"
 #include "itkEventObject.h"
 #include "itkMetaDataDictionary.h"
+#include "itkSingletonMacro.h"
 
 namespace itk
 {
@@ -201,6 +202,9 @@ protected:
   virtual void SetTimeStamp( const TimeStamp & time );
 
 private:
+  /** Only used to synchronize the global variable across static libraries.*/
+  itkGetGlobalDeclarationMacro(bool, GlobalWarningDisplay);
+
   /** Enable/Disable debug messages. */
   mutable bool m_Debug;
 
@@ -208,7 +212,7 @@ private:
   mutable TimeStamp m_MTime;
 
   /** Global object debug flag. */
-  static bool m_GlobalWarningDisplay;
+  static bool *m_GlobalWarningDisplay;
 
   /** Implementation class for Subject/Observer Pattern.
    * This is only allocated if used. */
