@@ -439,7 +439,6 @@ endif()
     return;
 #endif
     }
-  _ITKCommonPython_GetGlobalSingletonIndex();
   itk::SingletonIndex::SetInstance( _ITKCommonPython_GetGlobalSingletonIndex() );
   ${DO_NOT_WAIT_FOR_THREADS}
 ")
