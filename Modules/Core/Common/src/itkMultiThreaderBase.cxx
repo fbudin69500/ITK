@@ -33,6 +33,7 @@
 #include "itkSimpleFastMutexLock.h"
 #include "itksys/SystemTools.hxx"
 #include "itkImageSourceCommon.h"
+#include "itkSingleton.h"
 #include "itkProcessObject.h"
 #include <iostream>
 #include <string>
@@ -43,142 +44,52 @@
 #include "itkTBBMultiThreader.h"
 #endif
 
-
 namespace itk
 {
-  struct MultiThreaderBaseGlobals
-  {
-    // Initialize static members.
-    MultiThreaderBaseGlobals():GlobalDefaultThreaderTypeIsInitialized(false),
+
+struct MultiThreaderBaseGlobals
+{
+  // Initialize static members.
+  MultiThreaderBaseGlobals():GlobalDefaultThreaderTypeIsInitialized(false),
 #if defined(ITK_USE_TBB)
-    m_GlobalDefaultThreader(MultiThreaderBase::ThreaderType::TBB),
+  m_GlobalDefaultThreader(MultiThreaderBase::ThreaderType::TBB),
 #else
-    m_GlobalDefaultThreader(MultiThreaderBase::ThreaderType::Pool),
+  m_GlobalDefaultThreader(MultiThreaderBase::ThreaderType::Pool),
 #endif
-    m_GlobalMaximumNumberOfThreads(ITK_MAX_THREADS),
-    // Global default number of threads : 0 => Not initialized.
-    m_GlobalDefaultNumberOfThreads(0)
-    {};
-    // GlobalDefaultThreaderTypeIsInitialized is used only in this
-    // file to ensure that the ITK_GLOBAL_DEFAULT_THREADER or
-    // ITK_USE_THREADPOOL environmenal variables are
-    // only used as a fall back option.  If the SetGlobalDefaultThreaderType
-    // API is ever used by the developer, the developers choice is
-    // respected over the environmental variable.
-    bool GlobalDefaultThreaderTypeIsInitialized;
-    SimpleFastMutexLock globalDefaultInitializerLock;
+  m_GlobalMaximumNumberOfThreads(ITK_MAX_THREADS),
+  // Global default number of threads : 0 => Not initialized.
+  m_GlobalDefaultNumberOfThreads(0)
+  {};
+  // GlobalDefaultThreaderTypeIsInitialized is used only in this
+  // file to ensure that the ITK_GLOBAL_DEFAULT_THREADER or
+  // ITK_USE_THREADPOOL environmenal variables are
+  // only used as a fall back option.  If the SetGlobalDefaultThreaderType
+  // API is ever used by the developer, the developers choice is
+  // respected over the environmental variable.
+  bool GlobalDefaultThreaderTypeIsInitialized;
+  SimpleFastMutexLock globalDefaultInitializerLock;
 
-    // Global value to control weather the threadpool implementation should
-    // be used. This defaults to the environmental variable
-    // ITK_GLOBAL_DEFAULT_THREADER. If that is not present, then
-    // ITK_USE_THREADPOOL is examined.
-    MultiThreaderBase::ThreaderType m_GlobalDefaultThreader;
+  // Global value to control weather the threadpool implementation should
+  // be used. This defaults to the environmental variable
+  // ITK_GLOBAL_DEFAULT_THREADER. If that is not present, then
+  // ITK_USE_THREADPOOL is examined.
+  MultiThreaderBase::ThreaderType m_GlobalDefaultThreader;
 
-    // Global variable defining the maximum number of threads that can be used.
-    //  The m_GlobalMaximumNumberOfThreads must always be less than or equal to
-    //  ITK_MAX_THREADS and greater than zero. */
-    ThreadIdType m_GlobalMaximumNumberOfThreads;
+  // Global variable defining the maximum number of threads that can be used.
+  //  The m_GlobalMaximumNumberOfThreads must always be less than or equal to
+  //  ITK_MAX_THREADS and greater than zero. */
+  ThreadIdType m_GlobalMaximumNumberOfThreads;
 
-    //  Global variable defining the default number of threads to set at
-    //  construction time of a MultiThreaderBase instance.  The
-    //  m_GlobalDefaultNumberOfThreads must always be less than or equal to the
-    //  m_GlobalMaximumNumberOfThreads and larger or equal to 1 once it has been
-    //  initialized in the constructor of the first MultiThreaderBase instantiation.
-    ThreadIdType m_GlobalDefaultNumberOfThreads;
-  };
-}//end of itk namespace
-
-namespace
-{
-static ::itk::SimpleFastMutexLock globalInitializerLock;
-
-/** \brief A function which does nothing
- *
- * This function is to be used to mark parameters as unused to suppress
- * compiler warning. It can be used when the parameter needs to be named
- * (i.e. itkNotUsed cannot be used) but is not always used. It ensures
- * that the parameter is not optimized out.
- */
-template <typename T>
-void Unused( const T &) {};
-
-// This ensures that m_MultiThreaderBaseGlobals is has been initialized once the library
-// has been loaded. In some cases, this call will perform the initialization.
-// In other cases, static initializers like the IO factory initialization code
-// will have done the initialization.
-static ::itk::MultiThreaderBaseGlobals * initializedMultiThreaderBaseGlobals = ::itk::MultiThreaderBase::GetMultiThreaderBaseGlobals();
-
-/** \class MultiThreaderBaseGlobalsInitializer
- *
- * \brief Initialize a MultiThreaderBaseGlobals and delete it on program
- * completion.
- * */
-class MultiThreaderBaseGlobalsInitializer
-{
-public:
-  using Self = MultiThreaderBaseGlobalsInitializer;
-
-  MultiThreaderBaseGlobalsInitializer() = default;
-
-  /** Delete the time stamp if it was created. */
-  ~MultiThreaderBaseGlobalsInitializer()
-    {
-    delete m_MultiThreaderBaseGlobals;
-    m_MultiThreaderBaseGlobals = nullptr;
-    }
-
-  /** Create the MultiThreaderBaseGlobals if needed and return it. */
-  static ::itk::MultiThreaderBaseGlobals * GetMultiThreaderBaseGlobals()
-    {
-    if( !m_MultiThreaderBaseGlobals )
-      {
-      // GetGlobalDefaultThreaderType() must be thread safe and can potentially call
-      // this method, even though it is very unlikely.
-      ::itk::MutexLockHolder< ::itk::SimpleFastMutexLock > lock(globalInitializerLock);
-      if( !m_MultiThreaderBaseGlobals )
-        {
-        m_MultiThreaderBaseGlobals = new ::itk::MultiThreaderBaseGlobals;
-        // To avoid being optimized out. The compiler does not like this
-        // statement at a higher scope.
-        Unused(initializedMultiThreaderBaseGlobals);
-        }
-      }
-    return m_MultiThreaderBaseGlobals;
-    }
-
-private:
-  static ::itk::MultiThreaderBaseGlobals * m_MultiThreaderBaseGlobals;
+  //  Global variable defining the default number of threads to set at
+  //  construction time of a MultiThreaderBase instance.  The
+  //  m_GlobalDefaultNumberOfThreads must always be less than or equal to the
+  //  m_GlobalMaximumNumberOfThreads and larger or equal to 1 once it has been
+  //  initialized in the constructor of the first MultiThreaderBase instantiation.
+  ThreadIdType m_GlobalDefaultNumberOfThreads;
 };
 
-// Takes care of cleaning up the MultiThreaderBaseGlobals
-static MultiThreaderBaseGlobalsInitializer MultiThreaderBaseGlobalsInitializerInstance;
-// Initialized by the compiler to zero
-::itk::MultiThreaderBaseGlobals * MultiThreaderBaseGlobalsInitializer::m_MultiThreaderBaseGlobals;
+itkGetGlobalSimpleMacro(MultiThreaderBase, MultiThreaderBaseGlobals, Pimpl);
 
-} // end anonymous namespace
-
-
-namespace itk
-{
-
-::itk::MultiThreaderBaseGlobals *
-MultiThreaderBase
-::GetMultiThreaderBaseGlobals()
-{
-  if( m_MultiThreaderBaseGlobals == nullptr )
-    {
-    m_MultiThreaderBaseGlobals = MultiThreaderBaseGlobalsInitializer::GetMultiThreaderBaseGlobals();
-    }
-  return m_MultiThreaderBaseGlobals;
-}
-
-
-void
-MultiThreaderBase
-::SetMultiThreaderBaseGlobals( MultiThreaderBaseGlobals * multiThreaderBaseGlobals )
-{
-  m_MultiThreaderBaseGlobals = multiThreaderBaseGlobals;
-}
 
 #if ! defined (ITK_LEGACY_REMOVE)
 void MultiThreaderBase::SetGlobalDefaultUseThreadPool( const bool GlobalDefaultUseThreadPool )
@@ -201,12 +112,10 @@ bool MultiThreaderBase::GetGlobalDefaultUseThreadPool( )
 
 void MultiThreaderBase::SetGlobalDefaultThreader(ThreaderType threaderType)
 {
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals = GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
-  m_MultiThreaderBaseGlobals->m_GlobalDefaultThreader = threaderType;
-  m_MultiThreaderBaseGlobals->GlobalDefaultThreaderTypeIsInitialized = true;
+  itkInitGlobalsMacro(Pimpl);
+
+  m_Pimpl->m_GlobalDefaultThreader = threaderType;
+  m_Pimpl->GlobalDefaultThreaderTypeIsInitialized = true;
 }
 
 MultiThreaderBase::ThreaderType
@@ -214,19 +123,15 @@ MultiThreaderBase
 ::GetGlobalDefaultThreader()
 {
   // This method must be concurrent thread safe
+  itkInitGlobalsMacro(Pimpl);
 
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals = GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
-
-  if( !m_MultiThreaderBaseGlobals->GlobalDefaultThreaderTypeIsInitialized )
+  if( !m_Pimpl->GlobalDefaultThreaderTypeIsInitialized )
     {
-    MutexLockHolder< SimpleFastMutexLock > lock(m_MultiThreaderBaseGlobals->globalDefaultInitializerLock);
+    MutexLockHolder< SimpleFastMutexLock > lock(m_Pimpl->globalDefaultInitializerLock);
 
     // After we have the lock, double check the initialization
     // flag to ensure it hasn't been changed by another thread.
-    if (!m_MultiThreaderBaseGlobals->GlobalDefaultThreaderTypeIsInitialized )
+    if (!m_Pimpl->GlobalDefaultThreaderTypeIsInitialized )
       {
       std::string envVar;
       // first check ITK_GLOBAL_DEFAULT_THREADER
@@ -240,7 +145,7 @@ MultiThreaderBase
           }
         }
       // if that was not set check ITK_USE_THREADPOOL (deprecated)
-      else if( !m_MultiThreaderBaseGlobals->GlobalDefaultThreaderTypeIsInitialized
+      else if( !m_Pimpl->GlobalDefaultThreaderTypeIsInitialized
           && itksys::SystemTools::GetEnv("ITK_USE_THREADPOOL",envVar) )
         {
         envVar = itksys::SystemTools::UpperCase(envVar);
@@ -263,10 +168,10 @@ You should now use ITK_GLOBAL_DEFAULT_THREADER\
         }
 
       // always set that we are initialized
-      m_MultiThreaderBaseGlobals->GlobalDefaultThreaderTypeIsInitialized=true;
+      m_Pimpl->GlobalDefaultThreaderTypeIsInitialized=true;
       }
     }
-  return m_MultiThreaderBaseGlobals->m_GlobalDefaultThreader;
+  return m_Pimpl->m_GlobalDefaultThreader;
 }
 
 MultiThreaderBase::ThreaderType
@@ -294,51 +199,42 @@ MultiThreaderBase
 
 void MultiThreaderBase::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 {
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals = GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
+  itkInitGlobalsMacro(Pimpl);
 
-  m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads = val;
+  m_Pimpl->m_GlobalMaximumNumberOfThreads = val;
 
   // clamp between 1 and ITK_MAX_THREADS
-  m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads =
-    std::min( m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads,
+  m_Pimpl->m_GlobalMaximumNumberOfThreads =
+    std::min( m_Pimpl->m_GlobalMaximumNumberOfThreads,
              (ThreadIdType) ITK_MAX_THREADS );
-  m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads =
-    std::max( m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads,
+  m_Pimpl->m_GlobalMaximumNumberOfThreads =
+    std::max( m_Pimpl->m_GlobalMaximumNumberOfThreads,
               NumericTraits<ThreadIdType>::OneValue() );
 
   // If necessary reset the default to be used from now on.
-  m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads =
-    std::min( m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads,
-              m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads);
+  m_Pimpl->m_GlobalDefaultNumberOfThreads =
+    std::min( m_Pimpl->m_GlobalDefaultNumberOfThreads,
+              m_Pimpl->m_GlobalMaximumNumberOfThreads);
 }
 
 ThreadIdType MultiThreaderBase::GetGlobalMaximumNumberOfThreads()
 {
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals = GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
-  return m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads;
+  itkInitGlobalsMacro(Pimpl);
+  return m_Pimpl->m_GlobalMaximumNumberOfThreads;
 }
 
 void MultiThreaderBase::SetGlobalDefaultNumberOfThreads(ThreadIdType val)
 {
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals = GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
+  itkInitGlobalsMacro(Pimpl);
 
-  m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads = val;
+  m_Pimpl->m_GlobalDefaultNumberOfThreads = val;
 
-  // clamp between 1 and m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads
-  m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads  =
-    std::min( m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads,
-              m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads );
-  m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads  =
-    std::max( m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads,
+  // clamp between 1 and m_Pimpl->m_GlobalMaximumNumberOfThreads
+  m_Pimpl->m_GlobalDefaultNumberOfThreads  =
+    std::min( m_Pimpl->m_GlobalDefaultNumberOfThreads,
+              m_Pimpl->m_GlobalMaximumNumberOfThreads );
+  m_Pimpl->m_GlobalDefaultNumberOfThreads  =
+    std::max( m_Pimpl->m_GlobalDefaultNumberOfThreads,
               NumericTraits<ThreadIdType>::OneValue() );
 
 }
@@ -346,7 +242,7 @@ void MultiThreaderBase::SetGlobalDefaultNumberOfThreads(ThreadIdType val)
 void MultiThreaderBase::SetMaximumNumberOfThreads( ThreadIdType numberOfThreads )
 {
   if( m_MaximumNumberOfThreads == numberOfThreads &&
-      numberOfThreads <= m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads )
+      numberOfThreads <= m_Pimpl->m_GlobalMaximumNumberOfThreads )
     {
     return;
     }
@@ -354,14 +250,14 @@ void MultiThreaderBase::SetMaximumNumberOfThreads( ThreadIdType numberOfThreads 
   m_MaximumNumberOfThreads = numberOfThreads;
 
   // clamp between 1 and m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads
-  m_MaximumNumberOfThreads = std::min( m_MaximumNumberOfThreads, m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads );
+  m_MaximumNumberOfThreads = std::min( m_MaximumNumberOfThreads, m_Pimpl->m_GlobalMaximumNumberOfThreads );
   m_MaximumNumberOfThreads = std::max( m_MaximumNumberOfThreads, NumericTraits< ThreadIdType >::OneValue() );
 }
 
 void MultiThreaderBase::SetNumberOfWorkUnits(ThreadIdType numberOfWorkUnits)
 {
   if( m_NumberOfWorkUnits == numberOfWorkUnits &&
-      numberOfWorkUnits <= m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads )
+      numberOfWorkUnits <= m_Pimpl->m_GlobalMaximumNumberOfThreads )
     {
     return;
     }
@@ -370,24 +266,19 @@ void MultiThreaderBase::SetNumberOfWorkUnits(ThreadIdType numberOfWorkUnits)
 
   // clamp between 1 and m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads
   m_NumberOfWorkUnits  = std::min( m_NumberOfWorkUnits,
-                                   m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads );
+                                   m_Pimpl->m_GlobalMaximumNumberOfThreads );
   m_NumberOfWorkUnits  = std::max( m_NumberOfWorkUnits, NumericTraits<ThreadIdType>::OneValue() );
-
 }
 
 ThreadIdType MultiThreaderBase::GetGlobalDefaultNumberOfThreads()
 {
-  // This is called once, on-demand to ensure that m_MultiThreaderBaseGlobals is
-  // initialized.
-  static MultiThreaderBaseGlobals * multiThreaderBaseGlobals =
-    GetMultiThreaderBaseGlobals();
-  Unused(multiThreaderBaseGlobals);
+  itkInitGlobalsMacro(Pimpl);
 
-  if( m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads == 0 ) //need to initialize
+  if( m_Pimpl->m_GlobalDefaultNumberOfThreads == 0 ) //need to initialize
     {
-    m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads = ThreadPool::GetGlobalDefaultNumberOfThreads();
+    m_Pimpl->m_GlobalDefaultNumberOfThreads = ThreadPool::GetGlobalDefaultNumberOfThreads();
     }
-  return m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads;
+  return m_Pimpl->m_GlobalDefaultNumberOfThreads;
 }
 
 MultiThreaderBase::Pointer MultiThreaderBase::New()
@@ -643,15 +534,15 @@ void MultiThreaderBase::PrintSelf(std::ostream & os, Indent indent) const
   os << indent << "Number of Work Units: " << m_NumberOfWorkUnits << "\n";
   os << indent << "Number of Threads: " << m_MaximumNumberOfThreads << "\n";
   os << indent << "Global Maximum Number Of Threads: "
-     << m_MultiThreaderBaseGlobals->m_GlobalMaximumNumberOfThreads << std::endl;
+     << m_Pimpl->m_GlobalMaximumNumberOfThreads << std::endl;
   os << indent << "Global Default Number Of Threads: "
-     << m_MultiThreaderBaseGlobals->m_GlobalDefaultNumberOfThreads << std::endl;
+     << m_Pimpl->m_GlobalDefaultNumberOfThreads << std::endl;
   os << indent << "Global Default Threader Type: "
-     << m_MultiThreaderBaseGlobals->m_GlobalDefaultThreader << std::endl;
+     << m_Pimpl->m_GlobalDefaultThreader << std::endl;
   os << indent << "SingleMethod: " << m_SingleMethod << std::endl;
   os << indent << "SingleData: " << m_SingleData << std::endl;
 }
 
-MultiThreaderBaseGlobals * MultiThreaderBase::m_MultiThreaderBaseGlobals;
+MultiThreaderBaseGlobals * MultiThreaderBase::m_Pimpl;
 
 }
