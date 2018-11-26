@@ -414,15 +414,33 @@ macro(itk_module_target_install _name)
   #Use specific runtime components for executables and libraries separately when installing a module,
   #considering that the target of a module could be either an executable or a library.
   get_property(_ttype TARGET ${_name} PROPERTY TYPE)
+  set(runtime_destination ${${itk-module}_INSTALL_RUNTIME_DIR})
   if("${_ttype}" STREQUAL EXECUTABLE)
     set(runtime_component Runtime)
   else()
     set(runtime_component RuntimeLibraries)
   endif()
+  set(library_destination ${${itk-module}_INSTALL_LIBRARY_DIR})
+  set(library_component "RuntimeLibraries")
+  # Building the Python Wheel with scikit-build
+  if(BUILD_SHARED_LIBS AND ITK_WRAP_PYTHON)
+    set(runtime_destination "${PY_SITE_PACKAGES_PATH}/itk")
+    set(_component_module "")
+    if(WRAP_ITK_INSTALL_COMPONENT_PER_MODULE)
+      set(_component_module "${itk-module}")
+    endif()
+    if(NOT MSVC)  # Do not tag *.lib files as `library_component`
+      set(library_component "${_component_module}${WRAP_ITK_INSTALL_COMPONENT_IDENTIFIER}RuntimeLibraries")
+      set(library_destination "${PY_SITE_PACKAGES_PATH}/itk")
+    endif()
+    if(NOT "${_ttype}" STREQUAL EXECUTABLE)
+      set(runtime_component "${_component_module}${WRAP_ITK_INSTALL_COMPONENT_IDENTIFIER}RuntimeLibraries")
+    endif()
+  endif()
   install(TARGETS ${_name}
     EXPORT  ${${itk-module}-targets}
-    RUNTIME DESTINATION ${${itk-module}_INSTALL_RUNTIME_DIR} COMPONENT ${runtime_component}
-    LIBRARY DESTINATION ${${itk-module}_INSTALL_LIBRARY_DIR} COMPONENT RuntimeLibraries
+    RUNTIME DESTINATION ${runtime_destination} COMPONENT ${runtime_component}
+    LIBRARY DESTINATION ${library_destination} COMPONENT ${library_component}
     ARCHIVE DESTINATION ${${itk-module}_INSTALL_ARCHIVE_DIR} COMPONENT Development
     )
 endmacro()
