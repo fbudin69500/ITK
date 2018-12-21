@@ -86,7 +86,7 @@ PyImageFilter<TInputImage,TOutputImage>
     {
         PyObject *result;
 
-        result = PyEval_CallObject(this->m_Object, (PyObject *)nullptr);
+        result = PyEval_CallObject(this->m_Object, (PyObject *)this);
 
         if (result)
         {
