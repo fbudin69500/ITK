@@ -130,7 +130,22 @@ macro(itk_module_check_name _name)
   endif()
 endmacro()
 
+macro(itk_module_impl_third_party)
+  set(BUILD_SHARED_LIBS_THIRD_PARTY ${BUILD_SHARED_LIBS})
+  if(BUILD_SHARED_LIBS AND ITK_WRAP_PYTHON)
+    set(BUILD_SHARED_LIBS OFF)
+  endif()
+  itk_module_impl()
+  set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_THIRD_PARTY})
+endmacro()
+
 macro(itk_module_impl)
+  set(BUILD_SHARED_LIBS_BACKUP ${BUILD_SHARED_LIBS})
+  if(${PROJECT_NAME}_THIRD_PARTY AND ITK_WRAP_PYTHON)
+    set(BUILD_SHARED_LIBS OFF)
+    message(WARNING "deactivate shared: ${PROJECT_NAME}_THIRD_PARTY ")
+  endif()
+  message(WARNING "project: ${PROJECT_NAME}")
   include(itk-module.cmake) # Load module meta-data
   set(${itk-module}_INSTALL_RUNTIME_DIR ${ITK_INSTALL_RUNTIME_DIR})
   set(${itk-module}_INSTALL_LIBRARY_DIR ${ITK_INSTALL_LIBRARY_DIR})
@@ -291,6 +306,7 @@ macro(itk_module_impl)
     COMPONENT Development
     )
   itk_module_doxygen(${itk-module})   # module name
+  set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_BACKUP})
 endmacro()
 
 # itk_module_link_dependencies()
