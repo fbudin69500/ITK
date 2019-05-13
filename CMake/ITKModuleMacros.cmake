@@ -130,22 +130,7 @@ macro(itk_module_check_name _name)
   endif()
 endmacro()
 
-macro(itk_module_impl_third_party)
-  set(BUILD_SHARED_LIBS_THIRD_PARTY ${BUILD_SHARED_LIBS})
-  if(BUILD_SHARED_LIBS AND ITK_WRAP_PYTHON)
-    set(BUILD_SHARED_LIBS OFF)
-  endif()
-  itk_module_impl()
-  set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_THIRD_PARTY})
-endmacro()
-
 macro(itk_module_impl)
-  set(BUILD_SHARED_LIBS_BACKUP ${BUILD_SHARED_LIBS})
-  if(${PROJECT_NAME}_THIRD_PARTY AND ITK_WRAP_PYTHON)
-    set(BUILD_SHARED_LIBS OFF)
-    message(WARNING "deactivate shared: ${PROJECT_NAME}_THIRD_PARTY ")
-  endif()
-  message(WARNING "project: ${PROJECT_NAME}")
   include(itk-module.cmake) # Load module meta-data
   set(${itk-module}_INSTALL_RUNTIME_DIR ${ITK_INSTALL_RUNTIME_DIR})
   set(${itk-module}_INSTALL_LIBRARY_DIR ${ITK_INSTALL_LIBRARY_DIR})
@@ -306,7 +291,20 @@ macro(itk_module_impl)
     COMPONENT Development
     )
   itk_module_doxygen(${itk-module})   # module name
-  set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_BACKUP})
+  # Add custom install rules for third party libraries when building ITK with shared libraries
+  # to install these libraries inside the correct python directory. This will duplicate the
+  # third party libraries that are installed as we are not changing the original install rules
+  # provided by their respective package.
+  if(${PROJECT_NAME}_THIRD_PARTY AND ITK_WRAP_PYTHON)
+   file(GLOB_RECURSE list_directories LIST_DIRECTORIES true *)
+    foreach(file_name ${list_directories})
+      if(IS_DIRECTORY ${file_name} AND EXISTS ${file_name}/CMakeLists.txt)
+        get_property(THIRD_PARTY_TARGETS DIRECTORY ${file_name} PROPERTY BUILDSYSTEM_TARGETS)
+        message(WARNING "Third party targets: (${file_name}) ${THIRD_PARTY_TARGETS}")
+      endif()
+    endforeach()
+  endif()
+
 endmacro()
 
 # itk_module_link_dependencies()
