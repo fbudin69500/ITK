@@ -242,6 +242,17 @@ else()
 
 endif()
 
+
+###############################################################################
+# Install shared libraries
+if(BUILD_SHARED_LIBS AND WRAP_ITK_INSTALL_COMPONENT_IDENTIFIER)
+  set(runtime_destination "${PY_SITE_PACKAGES_PATH}/itk")
+  set(library_component "ITKCommon${WRAP_ITK_INSTALL_COMPONENT_IDENTIFIER}RuntimeLibraries")
+
+  install(DIRECTORY ${ITK_BINARY_DIR}/lib/ DESTINATION ${runtime_destination} COMPONENT ${library_component}
+        FILES_MATCHING REGEX ".*\.so.*|.*\.dll|.*\.dyld")
+endif()
+
 ###############################################################################
 # Define the wrapping macros
 
